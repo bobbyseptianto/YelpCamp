@@ -5,9 +5,14 @@ const path = require("path");
 const ejsMate = require("ejs-mate");
 const methodOverride = require("method-override");
 const ExpressError = require("./helpers/ExpressError");
-const Campground = require("./models/campground");
-const Review = require("./models/review");
-const { campgroundSchema, reviewSchema } = require("./helpers/SchemasJoi");
+const campgroundsRouter = require("./routers/campgroundsRouter");
+const reviewsRouter = require("./routers/reviewsRouter");
+const usersRouter = require("./routers/usersRouter");
+const session = require("express-session");
+const flash = require("connect-flash");
+const passport = require("passport");
+const LocalStrategy = require("passport-local");
+const User = require("./models/user");
 
 // Mongo Connection
 const mongoose = require("mongoose");
@@ -15,6 +20,7 @@ mongoose.connect("mongodb://localhost:27017/yelp-camp", {
   useNewUrlParser: true,
   useCreateIndex: true,
   useUnifiedTopology: true,
+  useFindAndModify: false,
 });
 
 const db = mongoose.connection;
@@ -29,121 +35,46 @@ app.set("views", path.join(__dirname, "views"));
 app.use(methodOverride("_method"));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+app.use(express.static(path.join(__dirname, "public")));
 
-const validateCampground = (req, res, next) => {
-  const { error } = campgroundSchema.validate(req.body);
-  if (error) {
-    const msg = error.details.map((el) => el.message).join(",");
-    throw new ExpressError(msg, 400);
-  } else {
-    next();
-  }
+// Session for Development
+const config = {
+  secret: "SECRET",
+  resave: false,
+  saveUninitialized: true,
+  cookie: {
+    httpOnly: true,
+    expires: Date.now() + 1000 * 60 * 60 * 24 * 7,
+    maxAge: 1000 * 60 * 60 * 24 * 7,
+  },
 };
+app.use(session(config));
+app.use(flash());
 
-const validateReview = (req, res, next) => {
-  const { error } = reviewSchema.validate(req.body);
-  if (error) {
-    const msg = error.details.map((el) => el.message).join(",");
-    throw new ExpressError(msg, 400);
-  } else {
-    next();
+// Passport
+app.use(passport.initialize());
+app.use(passport.session()); //after app.use(session(config))
+passport.use(new LocalStrategy(User.authenticate()));
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
+
+app.use((req, res, next) => {
+  if (!["/login", "/"].includes(req.originalUrl)) {
+    req.session.returnTo = req.originalUrl;
   }
-};
+  res.locals.success = req.flash("success");
+  res.locals.error = req.flash("error");
+  res.locals.userLoggedIn = req.user; // req.user --> from Passport
+  next();
+});
 
 app.get("/", (req, res) => {
   res.render("home");
 });
 
-app.get("/campgrounds", async (req, res, next) => {
-  try {
-    const campgrounds = await Campground.find({});
-    res.render("campgrounds/index", { campgrounds });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.get("/campgrounds/new", (req, res) => {
-  res.render("campgrounds/new");
-});
-
-app.post("/campgrounds", validateCampground, async (req, res, next) => {
-  try {
-    const newCampground = await new Campground(req.body).save();
-    res.redirect(`/campgrounds/${newCampground._id}`);
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.get("/campgrounds/:id", async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const campground = await Campground.findById(id).populate("reviews");
-    res.render("campgrounds/show", { campground });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.get("/campgrounds/:id/edit", async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const campground = await Campground.findById(id);
-    res.render("campgrounds/edit", { campground });
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.put("/campgrounds/:id", validateCampground, async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const campground = await Campground.findByIdAndUpdate(
-      id,
-      { ...req.body },
-      { useFindAndModify: false }
-    );
-    res.redirect(`/campgrounds/${campground._id}`);
-  } catch (error) {
-    next(err);
-  }
-});
-
-app.delete("/campgrounds/:id", async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    await Campground.findByIdAndDelete(id);
-    res.redirect(`/campgrounds`);
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.post("/campgrounds/:id/reviews", validateReview, async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const campground = await Campground.findById(id);
-    const review = await new Review(req.body);
-    campground.reviews.push(review);
-    await campground.save();
-    await review.save();
-    res.redirect(`/campgrounds/${campground._id}`);
-  } catch (err) {
-    next(err);
-  }
-});
-
-app.delete("/campgrounds/:id/reviews/:reviewid", async (req, res, next) => {
-  try {
-    const { id, reviewid } = req.params;
-    await Campground.findByIdAndUpdate(id, { $pull: { reviews: reviewid } });
-    await Review.findByIdAndDelete(reviewid);
-    res.redirect(`/campgrounds/${id}`);
-  } catch (err) {
-    next(err);
-  }
-});
+app.use("/", usersRouter);
+app.use("/campgrounds", campgroundsRouter);
+app.use("/campgrounds/:id/reviews", reviewsRouter);
 
 app.all("*", (req, res, next) => {
   next(new ExpressError("Page Not Found", 404));
