@@ -1,3 +1,7 @@
+if (process.env.NODE_ENV !== "production") {
+  require("dotenv").config();
+}
+
 const express = require("express");
 const app = express();
 const PORT = 3000;
@@ -39,7 +43,7 @@ app.use(express.static(path.join(__dirname, "public")));
 
 // Session for Development
 const config = {
-  secret: "SECRET",
+  secret: process.env.SECRET,
   resave: false,
   saveUninitialized: true,
   cookie: {

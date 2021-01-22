@@ -1,11 +1,12 @@
 <% layout('./layouts/boilerplate') -%>
 
 <h1 class="text-center">Edit Campground</h1>
-<div class="col-6 offset-3">
+<div class="col-md-6 offset-md-3 mb-5">
   <form
     action="/campgrounds/<%= campground._id %>?_method=PUT"
     method="POST"
     class="validate-form"
+    enctype="multipart/form-data"
     novalidate
   >
     <div class="mb-3">
@@ -33,19 +34,6 @@
       />
       <div class="valid-feedback">Looks good!</div>
       <div class="invalid-feedback">Location is required!</div>
-    </div>
-    <div class="mb-3">
-      <label class="form-label" for="image">Image URL :</label>
-      <input
-        class="form-control"
-        type="text"
-        name="image"
-        id="image"
-        value="<%= campground.image %>"
-        required
-      />
-      <div class="valid-feedback">Looks good!</div>
-      <div class="invalid-feedback">Image URL is required!</div>
     </div>
     <div class="mb-3">
       <label class="form-label" for="price">Campground Price :</label>
@@ -78,6 +66,33 @@
       >
       <div class="valid-feedback">Looks good!</div>
       <div class="invalid-feedback">Title is required!</div>
+    </div>
+    <div class="mb-3">
+      <label class="form-label" for="image">Image :</label>
+      <input
+        class="form-control"
+        type="file"
+        name="image"
+        id="image"
+        multiple
+      />
+      <div class="valid-feedback">Looks good!</div>
+      <div class="invalid-feedback">Image is required!</div>
+    </div>
+    <div class="mb-3">
+      <% campground.images.forEach((img, i) => { %>
+      <img src="<%= img.thumbnail %>" class="img-thumbnail" alt="" />
+      <div class="form-check form-check-inline">
+        <input
+          class="form-check-input"
+          type="checkbox"
+          id="image-<%= i %>"
+          value="<%= img.filename %>"
+          name="deleteImages[]"
+        />
+        <label class="form-check-label" for="image-<%= i %>"> Delete? </label>
+      </div>
+      <% }) %>
     </div>
     <button class="btn btn-info text-light" type="submit">
       Edit Campground
