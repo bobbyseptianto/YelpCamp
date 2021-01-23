@@ -13,7 +13,7 @@ router
   .get(UserController.renderLoginForm)
   .post(
     passport.authenticate("local", {
-      failureFlash: "Invalid username or password!",
+      // failureFlash: "Invalid username or password!",
       successFlash: "Welcome Back!",
       failureRedirect: "/login",
     }),

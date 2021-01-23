@@ -10,6 +10,7 @@ module.exports.registerUser = async (req, res, next) => {
       const { username, email, password } = req.body;
       const user = await new User({ email, username });
       const registeredUser = await User.register(user, password);
+      // After Register -> Directly LoggedIn
       req.login(registeredUser, (err) => {
         if (err) return next(err);
         req.flash("success", "Wellcome to YelpCamp!");
